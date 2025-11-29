@@ -113,18 +113,7 @@ const fs = require('fs');
   console.log('✅ Результаты:');
   console.table(results);
   
-  // Сохраняем в файл
   fs.writeFileSync('results.json', JSON.stringify(results, null, 2));
   
   await browser.close();
 })();
-```
-
-**Структура репозитория:**
-```
-твой-репо/
-├── .github/
-│   └── workflows/
-│       └── parser.yml
-├── parser.js
-└── package.json
