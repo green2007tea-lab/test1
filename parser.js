@@ -18,118 +18,101 @@ const fs = require('fs');
   await page.waitForSelector('.market_listing_row.market_recent_listing_row');
   await new Promise(r => setTimeout(r, 2000));
   
-  const results = [];
-  
-  const listingsCount = await page.$$eval('.market_listing_row.market_recent_listing_row', els => els.length);
-  console.log(`Найдено скинов: ${listingsCount}`);
-  
-  for (let i = 0; i < listingsCount; i++) {
-    console.log(`[${i + 1}/${listingsCount}] Обрабатываю...`);
+  // ЗАПУСКАЕМ ТВОЙ СКРИПТ ЦЕЛИКОМ В БРАУЗЕРЕ
+  const results = await page.evaluate(async () => {
+    // Копируем ВЕСЬ твой скрипт сюда
+    const listings = document.querySelectorAll('.market_listing_row.market_recent_listing_row');
+    const results = [];
     
-    const baseData = await page.evaluate((index) => {
-      const listings = document.querySelectorAll('.market_listing_row.market_recent_listing_row');
-      const listing = listings[index];
+    for (let i = 0; i < listings.length; i++) {
+      const listing = listings[i];
       const nameElement = listing.querySelector('.market_listing_item_name');
       
       const data = {
-        index: index + 1,
+        index: i + 1,
         listingId: listing.id.replace('listing_', ''),
-        name: nameElement ? nameElement.textContent.trim() : null
+        name: nameElement ? nameElement.textContent.trim() : null,
+        stickers: [],
+        pattern: null,
+        float: null
       };
       
       const stickerInfoInListing = listing.querySelector('#sticker_info');
       if (stickerInfoInListing) {
-        data.stickerCount = stickerInfoInListing.querySelectorAll('img').length;
+        const imgs = stickerInfoInListing.querySelectorAll('img');
+        data.stickerCount = imgs.length;
       }
       
-      return data;
-    }, i);
-    
-    // ПРАВИЛЬНЫЙ селектор через ID
-    const selector = `#listing_${baseData.listingId} .market_listing_item_name`;
-    
-    try {
-      await page.evaluate((sel) => {
-        const el = document.querySelector(sel);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, selector);
+      // Прокручиваем к элементу
+      nameElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      await new Promise(r => setTimeout(r, 500));
+      // НАВОДИМ через события
+      nameElement.dispatchEvent(new MouseEvent('mouseover', { 
+        bubbles: true, 
+        cancelable: true,
+        view: window 
+      }));
       
-      await page.hover(selector);
+      await new Promise(resolve => setTimeout(resolve, 1500));
       
-      await new Promise(r => setTimeout(r, 2000));
+      const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
       
-      const hoverData = await page.evaluate(() => {
-        const result = {
-          float: null,
-          pattern: null,
-          stickers: []
-        };
+      for (let block of allBlocks) {
+        const text = block.innerText || block.textContent;
         
-        const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
-        for (let block of allBlocks) {
-          const text = block.innerText || block.textContent;
-          
-          if (text.includes('Степень износа') || text.includes('Шаблон раскраски')) {
-            const floatMatch = text.match(/Степень износа[:\s]*([\d,\.]+)/i);
-            if (floatMatch) {
-              result.float = parseFloat(floatMatch[1].replace(',', '.'));
-            }
-            
-            const patternMatch = text.match(/Шаблон раскраски[:\s]*(\d+)/i);
-            if (patternMatch) {
-              result.pattern = parseInt(patternMatch[1]);
-            }
-            break;
+        if (text.includes('Степень износа') || text.includes('Шаблон раскраски')) {
+          const floatMatch = text.match(/Степень износа[:\s]*([\d,\.]+)/i);
+          if (floatMatch) {
+            data.float = parseFloat(floatMatch[1].replace(',', '.'));
           }
-        }
-        
-        const allStickerInfos = document.querySelectorAll('#sticker_info');
-        for (let stickerBlock of allStickerInfos) {
-          const hasCenter = stickerBlock.querySelector('center');
-          const hasBorder = stickerBlock.style.border || (stickerBlock.getAttribute('style') || '').includes('border');
           
-          if (hasCenter || hasBorder) {
-            const centerEl = stickerBlock.querySelector('center');
-            if (centerEl) {
-              const fullText = centerEl.innerText || centerEl.textContent;
-              const lines = fullText.split('\n');
-              
-              for (let line of lines) {
-                if (line.trim().startsWith('Наклейка:')) {
-                  const stickerText = line.replace(/^Наклейка:\s*/i, '').trim();
-                  const stickerNames = stickerText.split(',').map(s => s.trim()).filter(s => s);
-                  result.stickers = stickerNames;
-                  break;
-                }
+          const patternMatch = text.match(/Шаблон раскраски[:\s]*(\d+)/i);
+          if (patternMatch) {
+            data.pattern = parseInt(patternMatch[1]);
+          }
+          
+          break;
+        }
+      }
+      
+      const allStickerInfos = document.querySelectorAll('#sticker_info');
+      for (let stickerBlock of allStickerInfos) {
+        const hasCenter = stickerBlock.querySelector('center');
+        const hasBorder = stickerBlock.style.border || (stickerBlock.getAttribute('style') || '').includes('border');
+        
+        if (hasCenter || hasBorder) {
+          const centerEl = stickerBlock.querySelector('center');
+          if (centerEl) {
+            const fullText = centerEl.innerText || centerEl.textContent;
+            const lines = fullText.split('\n');
+            
+            for (let line of lines) {
+              if (line.trim().startsWith('Наклейка:')) {
+                const stickerText = line.replace(/^Наклейка:\s*/i, '').trim();
+                const stickerNames = stickerText.split(',').map(s => s.trim()).filter(s => s);
+                data.stickers = stickerNames;
+                break;
               }
             }
-            break;
           }
+          break;
         }
-        
-        return result;
-      });
+      }
       
-      results.push({
-        ...baseData,
-        ...hoverData
-      });
+      nameElement.dispatchEvent(new MouseEvent('mouseout', { 
+        bubbles: true, 
+        cancelable: true,
+        view: window 
+      }));
       
-      await page.mouse.move(0, 0);
-      await new Promise(r => setTimeout(r, 500));
+      results.push(data);
       
-    } catch (err) {
-      console.log(`Ошибка для ${i + 1}:`, err.message);
-      results.push({
-        ...baseData,
-        float: null,
-        pattern: null,
-        stickers: []
-      });
+      await new Promise(resolve => setTimeout(resolve, 300));
     }
-  }
+    
+    return results;
+  });
   
   console.log('\n✅ Результаты:');
   console.table(results);
