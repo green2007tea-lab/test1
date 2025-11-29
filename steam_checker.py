@@ -1,62 +1,99 @@
 import requests
-import sys
+from bs4 import BeautifulSoup
+import re
 from datetime import datetime
 
-def check_steam_page():
+def parse_steam_market():
     url = "https://steamcommunity.com/market/listings/730/AK-47%20%7C%20Legion%20of%20Anubis%20%28Field-Tested%29"
     
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
         'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1'
     }
     
     try:
         print(f"[{datetime.now()}] Запрос к Steam...")
         response = requests.get(url, headers=headers, timeout=30)
         
-        print(f"Status Code: {response.status_code}")
-        print(f"Content Length: {len(response.text)} символов")
-        print(f"IP адрес runner: {requests.get('https://api.ipify.org').text}")
-        print("-" * 50)
+        if response.status_code != 200:
+            print(f"❌ Ошибка: Status {response.status_code}")
+            return
         
-        if response.status_code == 200:
-            print("✅ УСПЕХ: Получили страницу")
-            # Проверяем что это реально страница, а не заглушка
-            if "Legion of Anubis" in response.text:
-                print("✅ Контент валидный - нашли название предмета")
+        print("✅ Страница получена, парсим данные...\n")
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Находим все скины на странице
+        listings = soup.find_all('div', class_='market_listing_row market_recent_listing_row')
+        
+        if not listings:
+            print("❌ Скины не найдены на странице")
+            print("Возможно, страница загружается через JavaScript")
+            print("Нужно использовать Selenium для полной загрузки")
+            return
+        
+        print(f"Найдено скинов: {len(listings)}\n")
+        print("="*80)
+        
+        for idx, listing in enumerate(listings, 1):
+            print(f"\n🔫 СКИН #{idx}")
+            print("-"*80)
+            
+            # 1. Название скина
+            name_elem = listing.find('span', class_='market_listing_item_name')
+            skin_name = name_elem.get_text(strip=True) if name_elem else "Не найдено"
+            print(f"Название: {skin_name}")
+            
+            # 2. Цена
+            price_elem = listing.find('span', class_='market_listing_price market_listing_price_with_fee')
+            price = price_elem.get_text(strip=True) if price_elem else "Не найдено"
+            print(f"Цена: {price}")
+            
+            # 3. Наклейки
+            sticker_div = listing.find('div', id='sticker_info')
+            if sticker_div:
+                sticker_imgs = sticker_div.find_all('img')
+                if sticker_imgs:
+                    print(f"Наклейки ({len(sticker_imgs)} шт.):")
+                    for i, img in enumerate(sticker_imgs, 1):
+                        sticker_name = img.get('title', 'Без названия')
+                        # Убираем "Наклейка: " из начала
+                        sticker_name = sticker_name.replace('Наклейка: ', '')
+                        print(f"  {i}. {sticker_name}")
+                else:
+                    print("Наклейки: Нет")
             else:
-                print("⚠️ Страница получена, но контент подозрительный")
+                print("Наклейки: Нет")
             
-            # Сохраняем первые 1000 символов для проверки
-            print("\nПервые 500 символов ответа:")
-            print(response.text[:500])
+            # 4. Потертость и шаблон
+            details_div = listing.find('div', class_='market_listing_row_details')
+            if details_div:
+                details_text = details_div.get_text()
+                
+                # Ищем потертость
+                wear_match = re.search(r'Степень износа:\s*([\d,\.]+)', details_text)
+                if wear_match:
+                    wear = wear_match.group(1)
+                    print(f"Потертость: {wear}")
+                
+                # Ищем шаблон
+                pattern_match = re.search(r'Шаблон раскраски:\s*(\d+)', details_text)
+                if pattern_match:
+                    pattern = pattern_match.group(1)
+                    print(f"Шаблон: {pattern}")
             
-        elif response.status_code == 429:
-            print("❌ ОШИБКА 429: Rate limit / Too Many Requests")
-            print("Steam заблокировал IP")
-            
-        elif response.status_code == 403:
-            print("❌ ОШИБКА 403: Forbidden")
-            print("Steam заблокировал доступ")
-            
-        else:
-            print(f"⚠️ Неожиданный статус: {response.status_code}")
-            print(f"Ответ: {response.text[:500]}")
+            print("="*80)
         
-        print("-" * 50)
-        return response.status_code
+        print(f"\n✅ Парсинг завершён. Обработано скинов: {len(listings)}")
         
     except requests.exceptions.Timeout:
         print("❌ TIMEOUT: Превышено время ожидания")
-        return None
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         print(f"❌ ОШИБКА: {e}")
-        return None
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
-    status = check_steam_page()
-    sys.exit(0)  # Всегда успешный exit для проверки
+    parse_steam_market()
