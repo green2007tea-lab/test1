@@ -4,7 +4,7 @@ const fs = require('fs');
 (async () => {
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
   });
   
   const page = await browser.newPage();
@@ -16,73 +16,109 @@ const fs = require('fs');
   
   await page.waitForSelector('.market_listing_row.market_recent_listing_row');
   
-  // Извлекаем inspect links из всех листингов
-  const inspectData = await page.evaluate(() => {
-    const listings = document.querySelectorAll('.market_listing_row.market_recent_listing_row');
-    const results = [];
-    
-    listings.forEach((listing, i) => {
-      const nameElement = listing.querySelector('.market_listing_item_name');
-      const inspectButton = listing.querySelector('a[href^="steam://rungame"]');
+  // ЗАПУСКАЕМ ТВОЙ СКРИПТ НАПРЯМУЮ
+  const results = await page.evaluate(async () => {
+    async function parseAllSkins() {
+      const listings = document.querySelectorAll('.market_listing_row.market_recent_listing_row');
+      const results = [];
       
-      const data = {
-        index: i + 1,
-        listingId: listing.id.replace('listing_', ''),
-        name: nameElement ? nameElement.textContent.trim() : null,
-        inspectLink: inspectButton ? inspectButton.href : null
-      };
+      console.log(`Найдено скинов: ${listings.length}\n`);
       
-      // Наклейки (count)
-      const stickerInfo = listing.querySelector('#sticker_info');
-      if (stickerInfo) {
-        data.stickerCount = stickerInfo.querySelectorAll('img').length;
+      for (let i = 0; i < listings.length; i++) {
+        const listing = listings[i];
+        const nameElement = listing.querySelector('.market_listing_item_name');
+        
+        console.log(`[${i + 1}/${listings.length}] Обрабатываю...`);
+        
+        const data = {
+          index: i + 1,
+          listingId: listing.id.replace('listing_', ''),
+          name: nameElement ? nameElement.textContent.trim() : null,
+          stickers: [],
+          pattern: null,
+          float: null
+        };
+        
+        const stickerInfoInListing = listing.querySelector('#sticker_info');
+        if (stickerInfoInListing) {
+          const imgs = stickerInfoInListing.querySelectorAll('img');
+          const stickerImages = Array.from(imgs).map(img => img.src);
+          data.stickerCount = stickerImages.length;
+        }
+        
+        nameElement.dispatchEvent(new MouseEvent('mouseover', { 
+          bubbles: true, 
+          cancelable: true,
+          view: window 
+        }));
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
+        
+        for (let block of allBlocks) {
+          const text = block.innerText || block.textContent;
+          
+          if (text.includes('Степень износа') || text.includes('Шаблон раскраски')) {
+            const floatMatch = text.match(/Степень износа[:\s]*([\d,\.]+)/i);
+            if (floatMatch) {
+              data.float = parseFloat(floatMatch[1].replace(',', '.'));
+            }
+            
+            const patternMatch = text.match(/Шаблон раскраски[:\s]*(\d+)/i);
+            if (patternMatch) {
+              data.pattern = parseInt(patternMatch[1]);
+            }
+            
+            break;
+          }
+        }
+        
+        const allStickerInfos = document.querySelectorAll('#sticker_info');
+        for (let stickerBlock of allStickerInfos) {
+          const hasCenter = stickerBlock.querySelector('center');
+          const hasBorder = stickerBlock.style.border || (stickerBlock.getAttribute('style') || '').includes('border');
+          
+          if (hasCenter || hasBorder) {
+            const centerEl = stickerBlock.querySelector('center');
+            if (centerEl) {
+              const fullText = centerEl.innerText || centerEl.textContent;
+              const lines = fullText.split('\n');
+              
+              for (let line of lines) {
+                if (line.trim().startsWith('Наклейка:')) {
+                  const stickerText = line.replace(/^Наклейка:\s*/i, '').trim();
+                  const stickerNames = stickerText.split(',').map(s => s.trim()).filter(s => s);
+                  data.stickers = stickerNames;
+                  break;
+                }
+              }
+            }
+            break;
+          }
+        }
+        
+        nameElement.dispatchEvent(new MouseEvent('mouseout', { 
+          bubbles: true, 
+          cancelable: true,
+          view: window 
+        }));
+        
+        results.push(data);
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
       
-      results.push(data);
-    });
+      console.log('\n✅ ГОТОВО! Все скины обработаны:\n');
+      console.table(results);
+      
+      return results;
+    }
     
-    return results;
+    return await parseAllSkins();
   });
   
-  console.log('Найдено листингов:', inspectData.length);
-  
-  // Получаем float/pattern через API для каждого inspect link
-  const results = [];
-  
-  for (const item of inspectData) {
-    console.log(`[${item.index}] Получаю float для ${item.name}...`);
-    
-    if (!item.inspectLink) {
-      results.push({ ...item, float: null, pattern: null, stickers: [] });
-      continue;
-    }
-    
-    try {
-      // Используем публичный CSFloat API (может быть rate limit)
-      const apiUrl = `https://api.csfloat.com/?url=${encodeURIComponent(item.inspectLink)}`;
-      
-      const response = await page.evaluate(async (url) => {
-        const res = await fetch(url);
-        return await res.json();
-      }, apiUrl);
-      
-      results.push({
-        ...item,
-        float: response.iteminfo?.floatvalue || null,
-        pattern: response.iteminfo?.paintseed || null,
-        stickers: response.iteminfo?.stickers?.map(s => s.name) || []
-      });
-      
-      // Rate limit delay
-      await new Promise(r => setTimeout(r, 1000));
-      
-    } catch (err) {
-      console.log(`Ошибка для ${item.index}:`, err.message);
-      results.push({ ...item, float: null, pattern: null, stickers: [] });
-    }
-  }
-  
-  console.log('\n✅ Результаты:');
+  console.log('✅ Результаты:');
   console.table(results);
   
   fs.writeFileSync('results.json', JSON.stringify(results, null, 2));
