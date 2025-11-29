@@ -51,7 +51,7 @@ async function parseSteamMarket() {
       await page.hover(nameSelector);
       
       // Ждем появления popup с данными
-      await page.waitForTimeout(1000);
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Парсим float, pattern и наклейки
       const parsed = await page.evaluate(() => {
@@ -117,7 +117,7 @@ async function parseSteamMarket() {
       
       // Убираем наведение (двигаем мышку в сторону)
       await page.mouse.move(0, 0);
-      await page.waitForTimeout(200);
+      await new Promise(resolve => setTimeout(resolve, 200));
       
     } catch (error) {
       console.log(`Ошибка при парсинге листинга ${i + 1}: ${error.message}`);
