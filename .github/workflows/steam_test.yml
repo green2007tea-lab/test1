@@ -1,17 +1,11 @@
-name: Steam Market Parser
+name: Steam Parser Test
 
 on:
-  # Ручной запуск
   workflow_dispatch:
-  
-  # Автозапуск каждые 30 минут (раскомментируй если нужно)
-  # schedule:
-  #   - cron: '*/30 * * * *'
 
 jobs:
-  parse-steam:
+  test-steam-1:
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,15 +15,15 @@ jobs:
         with:
           python-version: '3.11'
       
+      - name: Install Chrome
+        run: |
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+      
       - name: Install dependencies
-        run: |
-          pip install requests beautifulsoup4 lxml
+        run: pip install selenium webdriver-manager
       
-      - name: Run Steam parser
+      - name: Run Steam checker
         run: python steam_checker.py
-      
-      - name: Show IP address
-        run: |
-          echo "IP адрес runner:"
-          curl -s https://api.ipify.org
-          echo ""
