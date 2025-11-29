@@ -1,5 +1,5 @@
 {
-  "timestamp": "2025-11-29T17:40:52.661Z",
+  "timestamp": "2025-11-29T17:50:02.532Z",
   "url": "https://steamcommunity.com/market/listings/730/AK-47%20%7C%20Rat%20Rod%20%28Factory%20New%29",
   "total": 10,
   "data": [
@@ -7,81 +7,91 @@
       "index": 1,
       "listingId": "667223152475094827",
       "name": "AK-47 | Rat Rod (Factory New)",
+      "inspectUrl": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M667223152475094827A47240835939D11855233910928345461",
       "stickers": [],
-      "pattern": null,
-      "float": null
+      "pattern": 35189,
+      "float": 0.2516807346259432
     },
     {
       "index": 2,
       "listingId": "680732677197383763",
       "name": "AK-47 | Rat Rod (Factory New)",
+      "inspectUrl": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M680732677197383763A47407758518D17185773993830148593",
       "stickers": [],
-      "pattern": null,
-      "float": null
+      "pattern": 27121,
+      "float": 0.1343486542194962
     },
     {
       "index": 3,
       "listingId": "661591751997162997",
       "name": "AK-47 | Rat Rod (Factory New)",
+      "inspectUrl": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M661591751997162997A29604582064D16573506114724302841",
       "stickers": [],
-      "pattern": null,
-      "float": null
+      "pattern": 4089,
+      "float": 0.9218794649750645
     },
     {
       "index": 4,
       "listingId": "653710452701659578",
       "name": "AK-47 | Rat Rod (Factory New)",
+      "inspectUrl": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M653710452701659578A42140791789D16349863808472756021",
       "stickers": [],
-      "pattern": null,
-      "float": null
+      "pattern": 44853,
+      "float": 0.3847988863440228
     },
     {
       "index": 5,
       "listingId": "823722426861261383",
       "name": "AK-47 | Rat Rod (Factory New)",
+      "inspectUrl": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M823722426861261383A42454254536D17185773993830148593",
       "stickers": [],
-      "pattern": null,
-      "float": null
+      "pattern": 27121,
+      "float": 0.1343486542194962
     },
     {
       "index": 6,
       "listingId": "657086861965333951",
       "name": "AK-47 | Rat Rod (Factory New)",
+      "inspectUrl": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M657086861965333951A30023802247D7404599933567673177",
       "stickers": [],
-      "pattern": null,
-      "float": null
+      "pattern": 41817,
+      "float": 0.42347003110299586
     },
     {
       "index": 7,
       "listingId": "653710452701661678",
       "name": "AK-47 | Rat Rod (Factory New)",
+      "inspectUrl": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M653710452701661678A42140791102D5497815459211037457",
       "stickers": [],
-      "pattern": null,
-      "float": null
+      "pattern": 51985,
+      "float": 0.16418545976378615
     },
     {
       "index": 8,
       "listingId": "661591921325285743",
       "name": "AK-47 | Rat Rod (Factory New)",
+      "inspectUrl": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M661591921325285743A34821358277D309106703210285525",
       "stickers": [],
-      "pattern": null,
-      "float": null
+      "pattern": 35285,
+      "float": 0.167612704021766
     },
     {
       "index": 9,
       "listingId": "738154131447907957",
       "name": "AK-47 | Rat Rod (Factory New)",
+      "inspectUrl": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M738154131447907957A34236249783D893063109647722937",
       "stickers": [],
-      "pattern": null,
-      "float": null
+      "pattern": 59833,
+      "float": 0.797525677550008
     },
     {
       "index": 10,
       "listingId": "713384333579356738",
       "name": "AK-47 | Rat Rod (Factory New)",
+      "inspectUrl": "steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M713384333579356738A28976689799D17185773993830148593",
       "stickers": [],
-      "pattern": null,
-      "float": null
+      "pattern": 27121,
+      "float": 0.1343486542194962
     }
   ]
 }
