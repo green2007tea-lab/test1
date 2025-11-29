@@ -21,79 +21,77 @@ const fs = require('fs');
   
   await page.waitForSelector('.market_listing_row.market_recent_listing_row', { timeout: 30000 });
   
-  const results = await page.evaluate(async () => {
-    const listings = document.querySelectorAll('.market_listing_row.market_recent_listing_row');
-    const results = [];
+  // Получаем список всех листингов
+  const listings = await page.$$('.market_listing_row.market_recent_listing_row');
+  const results = [];
+  
+  console.log(`Найдено скинов: ${listings.length}`);
+  
+  for (let i = 0; i < listings.length; i++) {
+    console.log(`[${i + 1}/${listings.length}] Обрабатываю...`);
     
-    for (let i = 0; i < listings.length; i++) {
-      const listing = listings[i];
-      const nameElement = listing.querySelector('.market_listing_item_name');
+    const listing = listings[i];
+    
+    // Получаем базовую инфу
+    const baseData = await listing.evaluate((el, idx) => {
+      const nameElement = el.querySelector('.market_listing_item_name');
+      const stickerInfoInListing = el.querySelector('#sticker_info');
       
-      const data = {
-        index: i + 1,
-        listingId: listing.id.replace('listing_', ''),
+      return {
+        index: idx + 1,
+        listingId: el.id.replace('listing_', ''),
         name: nameElement ? nameElement.textContent.trim() : null,
-        stickers: [],
-        pattern: null,
-        float: null
+        stickerCount: stickerInfoInListing ? stickerInfoInListing.querySelectorAll('img').length : 0
       };
+    }, i);
+    
+    const data = {
+      ...baseData,
+      stickers: [],
+      pattern: null,
+      float: null
+    };
+    
+    // КЛЮЧЕВОЙ МОМЕНТ: используем page.hover() - это НАСТОЯЩЕЕ наведение курсора
+    try {
+      const nameSelector = `#${baseData.listingId} .market_listing_item_name`;
       
-      // Наклейки в листинге
-      const stickerInfoInListing = listing.querySelector('#sticker_info');
-      if (stickerInfoInListing) {
-        const imgs = stickerInfoInListing.querySelectorAll('img');
-        data.stickerCount = imgs.length;
-      }
+      // Прокручиваем к элементу
+      await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, nameSelector);
       
-      // ПРАВИЛЬНОЕ наведение мышки - используем hover() через элемент
-      if (nameElement) {
-        // Прокручиваем к элементу
-        nameElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await new Promise(resolve => setTimeout(resolve, 300));
-        
-        // Наводим курсор
-        const rect = nameElement.getBoundingClientRect();
-        const x = rect.left + rect.width / 2;
-        const y = rect.top + rect.height / 2;
-        
-        // Создаем реальное событие мышки
-        const mouseOverEvent = new MouseEvent('mouseover', {
-          view: window,
-          bubbles: true,
-          cancelable: true,
-          clientX: x,
-          clientY: y
-        });
-        
-        const mouseEnterEvent = new MouseEvent('mouseenter', {
-          view: window,
-          bubbles: true,
-          cancelable: true,
-          clientX: x,
-          clientY: y
-        });
-        
-        nameElement.dispatchEvent(mouseOverEvent);
-        nameElement.dispatchEvent(mouseEnterEvent);
-        
-        // Ждем popup
-        await new Promise(resolve => setTimeout(resolve, 1500));
+      await page.waitForTimeout(300);
+      
+      // РЕАЛЬНОЕ наведение курсора через Puppeteer
+      await page.hover(nameSelector);
+      
+      // Ждем появления popup
+      await page.waitForTimeout(2000);
+      
+      // Парсим float, pattern и наклейки
+      const hoverData = await page.evaluate(() => {
+        const result = {
+          float: null,
+          pattern: null,
+          stickers: []
+        };
         
         // Float и Pattern
         const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
-        
         for (let block of allBlocks) {
           const text = block.innerText || block.textContent;
           
           if (text.includes('Степень износа') || text.includes('Шаблон раскраски')) {
             const floatMatch = text.match(/Степень износа[:\s]*([\d,\.]+)/i);
             if (floatMatch) {
-              data.float = parseFloat(floatMatch[1].replace(',', '.'));
+              result.float = parseFloat(floatMatch[1].replace(',', '.'));
             }
             
             const patternMatch = text.match(/Шаблон раскраски[:\s]*(\d+)/i);
             if (patternMatch) {
-              data.pattern = parseInt(patternMatch[1]);
+              result.pattern = parseInt(patternMatch[1]);
             }
             
             break;
@@ -116,7 +114,7 @@ const fs = require('fs');
                 if (line.trim().startsWith('Наклейка:')) {
                   const stickerText = line.replace(/^Наклейка:\s*/i, '').trim();
                   const stickerNames = stickerText.split(',').map(s => s.trim()).filter(s => s);
-                  data.stickers = stickerNames;
+                  result.stickers = stickerNames;
                   break;
                 }
               }
@@ -125,32 +123,25 @@ const fs = require('fs');
           }
         }
         
-        // Убираем наведение
-        const mouseOutEvent = new MouseEvent('mouseout', {
-          view: window,
-          bubbles: true,
-          cancelable: true
-        });
-        
-        const mouseLeaveEvent = new MouseEvent('mouseleave', {
-          view: window,
-          bubbles: true,
-          cancelable: true
-        });
-        
-        nameElement.dispatchEvent(mouseOutEvent);
-        nameElement.dispatchEvent(mouseLeaveEvent);
-        
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
+        return result;
+      });
       
-      results.push(data);
+      data.float = hoverData.float;
+      data.pattern = hoverData.pattern;
+      data.stickers = hoverData.stickers;
+      
+      // Убираем hover - наводимся на body
+      await page.hover('body');
+      await page.waitForTimeout(300);
+      
+    } catch (err) {
+      console.log(`Ошибка при обработке скина ${i + 1}:`, err.message);
     }
     
-    return results;
-  });
+    results.push(data);
+  }
   
-  console.log('✅ Результаты:');
+  console.log('\n✅ Результаты:');
   console.table(results);
   
   fs.writeFileSync('results.json', JSON.stringify(results, null, 2));
