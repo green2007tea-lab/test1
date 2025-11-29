@@ -1,0 +1,103 @@
+name: Steam Parser Test
+
+on:
+  # Ручной запуск
+  workflow_dispatch:
+  
+  # Автозапуск каждые 10 минут (можешь изменить)
+  # schedule:
+  #   - cron: '*/10 * * * *'
+
+jobs:
+  # Job 1
+  test-steam-1:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: Run Steam checker - Job 1
+        run: python steam_checker.py
+
+  # Job 2
+  test-steam-2:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: Run Steam checker - Job 2
+        run: python steam_checker.py
+
+  # Job 3
+  test-steam-3:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: Run Steam checker - Job 3
+        run: python steam_checker.py
+
+  # Job 4
+  test-steam-4:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: Run Steam checker - Job 4
+        run: python steam_checker.py
+
+  # Job 5
+  test-steam-5:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: pip install requests
+      
+      - name: Run Steam checker - Job 5
+        run: python steam_checker.py
+
+  # Можешь добавить до 20 jobs
+  # test-steam-6, test-steam-7... test-steam-20
