@@ -1,22 +1,26 @@
 const puppeteer = require('puppeteer');
+const fs = require('fs');
 
 (async () => {
   const browser = await puppeteer.launch({
-    headless: false, // для отладки, потом можно true
-    args: ['--no-sandbox']
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ]
   });
   
   const page = await puppeteer.newPage();
   
-  // Переходим на страницу
   await page.goto('https://steamcommunity.com/market/listings/730/AK-47%20%7C%20Rat%20Rod%20%28Factory%20New%29', {
-    waitUntil: 'networkidle2'
+    waitUntil: 'networkidle2',
+    timeout: 60000
   });
   
-  // Ждем загрузки листингов
-  await page.waitForSelector('.market_listing_row.market_recent_listing_row');
+  await page.waitForSelector('.market_listing_row.market_recent_listing_row', { timeout: 30000 });
   
-  // Инжектим и запускаем твой скрипт
   const results = await page.evaluate(async () => {
     const listings = document.querySelectorAll('.market_listing_row.market_recent_listing_row');
     const results = [];
@@ -34,14 +38,12 @@ const puppeteer = require('puppeteer');
         float: null
       };
       
-      // Наклейки в листинге
       const stickerInfoInListing = listing.querySelector('#sticker_info');
       if (stickerInfoInListing) {
         const imgs = stickerInfoInListing.querySelectorAll('img');
         data.stickerCount = imgs.length;
       }
       
-      // Наводим мышку
       nameElement.dispatchEvent(new MouseEvent('mouseover', { 
         bubbles: true, 
         cancelable: true,
@@ -50,7 +52,6 @@ const puppeteer = require('puppeteer');
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Float и Pattern
       const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
       
       for (let block of allBlocks) {
@@ -71,7 +72,6 @@ const puppeteer = require('puppeteer');
         }
       }
       
-      // Наклейки из popup
       const allStickerInfos = document.querySelectorAll('#sticker_info');
       for (let stickerBlock of allStickerInfos) {
         const hasCenter = stickerBlock.querySelector('center');
@@ -96,7 +96,6 @@ const puppeteer = require('puppeteer');
         }
       }
       
-      // Убираем наведение
       nameElement.dispatchEvent(new MouseEvent('mouseout', { 
         bubbles: true, 
         cancelable: true,
@@ -111,9 +110,21 @@ const puppeteer = require('puppeteer');
     return results;
   });
   
-  console.log('✅ Результаты парсинга:');
+  console.log('✅ Результаты:');
   console.table(results);
-  console.log(JSON.stringify(results, null, 2));
+  
+  // Сохраняем в файл
+  fs.writeFileSync('results.json', JSON.stringify(results, null, 2));
   
   await browser.close();
 })();
+```
+
+**Структура репозитория:**
+```
+твой-репо/
+├── .github/
+│   └── workflows/
+│       └── parser.yml
+├── parser.js
+└── package.json
