@@ -1,40 +1,32 @@
-name: Steam Market Parser
+name: Steam Parser
 
 on:
+  workflow_dispatch:  # ручной запуск
   schedule:
-    - cron: '0 */6 * * *'  # Каждые 6 часов
-  workflow_dispatch:  # Ручной запуск
-
-permissions:
-  contents: write  # Даем права на запись
+    - cron: '0 */6 * * *'  # каждые 6 часов (опционально)
 
 jobs:
-  parse-steam-market:
+  parse:
     runs-on: ubuntu-latest
     
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+    - name: Checkout
+      uses: actions/checkout@v3
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install Puppeteer
+      run: |
+        npm install puppeteer
+        
+    - name: Run Parser
+      run: node parser.js
       
-      - name: Install dependencies
-        run: |
-          npm init -y
-          npm install puppeteer
-      
-      - name: Run parser
-        run: node parser.js
-      
-      - name: Commit results
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add results.json
-          git diff --quiet && git diff --staged --quiet || git commit -m "Update parsed data - $(date)"
-          git push
+    - name: Upload Results
+      uses: actions/upload-artifact@v3
+      with:
+        name: parse-results
+        path: results.json
