@@ -45,7 +45,8 @@ const fs = require('fs');
       return data;
     }, i);
     
-    const selector = `.market_listing_row.market_recent_listing_row:nth-child(${i + 1}) .market_listing_item_name`;
+    // ПРАВИЛЬНЫЙ селектор через ID
+    const selector = `#listing_${baseData.listingId} .market_listing_item_name`;
     
     try {
       await page.evaluate((sel) => {
