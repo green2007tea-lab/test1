@@ -16,7 +16,7 @@ const fs = require('fs');
   });
   
   await page.waitForSelector('.market_listing_row.market_recent_listing_row');
-  await new Promise(r => setTimeout(r, 2000));
+  await new Promise(r => setTimeout(r, 1500));
   
   const buyOrderPrice = await page.evaluate(() => {
     const buyOrderEl = document.querySelector('#market_commodity_buyrequests .market_commodity_orders_header_promote:last-child');
@@ -54,26 +54,24 @@ const fs = require('fs');
       }
       
       nameElement.scrollIntoView({ behavior: 'auto', block: 'center' });
-      await new Promise(resolve => setTimeout(resolve, 100)); // 500 → 100ms
       
       const rect = nameElement.getBoundingClientRect();
-      const events = ['mouseenter', 'mouseover', 'mousemove'];
-      for (let eventType of events) {
-        nameElement.dispatchEvent(new MouseEvent(eventType, { 
-          bubbles: true, 
-          cancelable: true,
-          view: window,
-          clientX: rect.left + rect.width / 2,
-          clientY: rect.top + rect.height / 2
-        }));
-      }
       
-      // ЖДЕМ ПОЯВЛЕНИЯ ДАННЫХ вместо фиксированной задержки
+      // Одно событие вместо трех
+      nameElement.dispatchEvent(new MouseEvent('mouseover', { 
+        bubbles: true, 
+        cancelable: true,
+        view: window,
+        clientX: rect.left + rect.width / 2,
+        clientY: rect.top + rect.height / 2
+      }));
+      
+      // Проверка каждые 50ms вместо 100ms
       let attempts = 0;
       let foundData = false;
       
-      while (attempts < 25 && !foundData) { // макс 2.5 сек (25 × 100ms)
-        await new Promise(resolve => setTimeout(resolve, 100));
+      while (attempts < 40 && !foundData) { // макс 2 сек (40 × 50ms)
+        await new Promise(resolve => setTimeout(resolve, 50));
         attempts++;
         
         const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
@@ -81,15 +79,14 @@ const fs = require('fs');
         for (let block of allBlocks) {
           const text = block.innerText || block.textContent;
           
-          if (text.includes('Степень износа') || text.includes('Шаблон раскраски') || 
-              text.includes('Wear Rating') || text.includes('Pattern Template')) {
+          if (text.includes('Wear Rating') || text.includes('Pattern Template')) {
             
-            const floatMatch = text.match(/(?:Степень износа|Wear Rating)[:\s]*([\d,\.]+)/i);
+            const floatMatch = text.match(/Wear Rating[:\s]*([\d,\.]+)/i);
             if (floatMatch) {
               data.float = parseFloat(floatMatch[1].replace(',', '.'));
             }
             
-            const patternMatch = text.match(/(?:Шаблон раскраски|Pattern Template)[:\s]*(\d+)/i);
+            const patternMatch = text.match(/Pattern Template[:\s]*(\d+)/i);
             if (patternMatch) {
               data.pattern = parseInt(patternMatch[1]);
             }
@@ -115,8 +112,8 @@ const fs = require('fs');
             const lines = fullText.split('\n');
             
             for (let line of lines) {
-              if (line.trim().startsWith('Наклейка:') || line.trim().startsWith('Sticker:')) {
-                const stickerText = line.replace(/^(?:Наклейка|Sticker):\s*/i, '').trim();
+              if (line.trim().startsWith('Sticker:')) {
+                const stickerText = line.replace(/^Sticker:\s*/i, '').trim();
                 const stickerNames = stickerText.split(',').map(s => s.trim()).filter(s => s);
                 data.stickers = stickerNames;
                 break;
@@ -134,7 +131,6 @@ const fs = require('fs');
       }));
       
       results.push(data);
-      await new Promise(resolve => setTimeout(resolve, 100)); // 500 → 100ms
     }
     
     return results;
