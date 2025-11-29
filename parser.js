@@ -22,94 +22,109 @@ async function parseSteamMarket() {
   
   console.log('Парсинг скинов...');
   
-  const results = await page.evaluate(async () => {
-    const listings = document.querySelectorAll('.market_listing_row.market_recent_listing_row');
-    const results = [];
+  // Получаем все листинги
+  const listings = await page.$$('.market_listing_row.market_recent_listing_row');
+  const results = [];
+  
+  for (let i = 0; i < listings.length; i++) {
+    console.log(`[${i + 1}/${listings.length}] Обрабатываю...`);
     
-    for (let i = 0; i < listings.length; i++) {
-      const listing = listings[i];
-      const nameElement = listing.querySelector('.market_listing_item_name');
-      
-      const data = {
-        index: i + 1,
-        listingId: listing.id.replace('listing_', ''),
+    const listing = listings[i];
+    
+    // Получаем базовую информацию
+    const data = await listing.evaluate((el, idx) => {
+      const nameElement = el.querySelector('.market_listing_item_name');
+      return {
+        index: idx + 1,
+        listingId: el.id.replace('listing_', ''),
         name: nameElement ? nameElement.textContent.trim() : null,
         stickers: [],
         pattern: null,
         float: null
       };
+    }, i);
+    
+    // НАВОДИМ МЫШКУ через page.hover() - правильный способ для Puppeteer
+    const nameSelector = `#listing_${data.listingId} .market_listing_item_name`;
+    
+    try {
+      await page.hover(nameSelector);
       
-      // НАВОДИМ МЫШКУ
-      nameElement.dispatchEvent(new MouseEvent('mouseover', { 
-        bubbles: true, 
-        cancelable: true,
-        view: window 
-      }));
+      // Ждем появления popup с данными
+      await page.waitForTimeout(1000);
       
-      // УВЕЛИЧЕНА ЗАДЕРЖКА для загрузки popup (было 100ms, стало 800ms)
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // ПАРСИМ FLOAT И PATTERN
-      const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
-      
-      for (let block of allBlocks) {
-        const text = block.innerText || block.textContent;
+      // Парсим float, pattern и наклейки
+      const parsed = await page.evaluate(() => {
+        const result = {
+          float: null,
+          pattern: null,
+          stickers: []
+        };
         
-        if (text.includes('Степень износа') || text.includes('Шаблон раскраски')) {
-          const floatMatch = text.match(/Степень износа[:\s]*([\d,\.]+)/i);
-          if (floatMatch) {
-            data.float = parseFloat(floatMatch[1].replace(',', '.'));
-          }
-          
-          const patternMatch = text.match(/Шаблон раскраски[:\s]*(\d+)/i);
-          if (patternMatch) {
-            data.pattern = parseInt(patternMatch[1]);
-          }
-          
-          break;
-        }
-      }
-      
-      // ПАРСИМ НАКЛЕЙКИ
-      const allStickerInfos = document.querySelectorAll('#sticker_info');
-      for (let stickerBlock of allStickerInfos) {
-        const hasCenter = stickerBlock.querySelector('center');
-        const hasBorder = stickerBlock.style.border || (stickerBlock.getAttribute('style') || '').includes('border');
+        // 1. FLOAT И PATTERN
+        const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
         
-        if (hasCenter || hasBorder) {
-          const centerEl = stickerBlock.querySelector('center');
-          if (centerEl) {
-            const fullText = centerEl.innerText || centerEl.textContent;
-            const lines = fullText.split('\n');
+        for (let block of allBlocks) {
+          const text = block.innerText || block.textContent;
+          
+          if (text.includes('Степень износа') || text.includes('Шаблон раскраски')) {
+            const floatMatch = text.match(/Степень износа[:\s]*([\d,\.]+)/i);
+            if (floatMatch) {
+              result.float = parseFloat(floatMatch[1].replace(',', '.'));
+            }
             
-            for (let line of lines) {
-              if (line.trim().startsWith('Наклейка:')) {
-                const stickerText = line.replace(/^Наклейка:\s*/i, '').trim();
-                const stickerNames = stickerText.split(',').map(s => s.trim()).filter(s => s);
-                data.stickers = stickerNames;
-                break;
+            const patternMatch = text.match(/Шаблон раскраски[:\s]*(\d+)/i);
+            if (patternMatch) {
+              result.pattern = parseInt(patternMatch[1]);
+            }
+            
+            break;
+          }
+        }
+        
+        // 2. НАКЛЕЙКИ
+        const allStickerInfos = document.querySelectorAll('#sticker_info');
+        for (let stickerBlock of allStickerInfos) {
+          const hasCenter = stickerBlock.querySelector('center');
+          const hasBorder = stickerBlock.style.border || (stickerBlock.getAttribute('style') || '').includes('border');
+          
+          if (hasCenter || hasBorder) {
+            const centerEl = stickerBlock.querySelector('center');
+            if (centerEl) {
+              const fullText = centerEl.innerText || centerEl.textContent;
+              const lines = fullText.split('\n');
+              
+              for (let line of lines) {
+                if (line.trim().startsWith('Наклейка:')) {
+                  const stickerText = line.replace(/^Наклейка:\s*/i, '').trim();
+                  const stickerNames = stickerText.split(',').map(s => s.trim()).filter(s => s);
+                  result.stickers = stickerNames;
+                  break;
+                }
               }
             }
+            break;
           }
-          break;
         }
-      }
+        
+        return result;
+      });
       
-      // УБИРАЕМ НАВЕДЕНИЕ
-      nameElement.dispatchEvent(new MouseEvent('mouseout', { 
-        bubbles: true, 
-        cancelable: true,
-        view: window 
-      }));
+      // Объединяем данные
+      data.float = parsed.float;
+      data.pattern = parsed.pattern;
+      data.stickers = parsed.stickers;
       
-      results.push(data);
+      // Убираем наведение (двигаем мышку в сторону)
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(200);
       
-      // УВЕЛИЧЕНА ЗАДЕРЖКА между скинами (было 10ms, стало 200ms)
-      await new Promise(resolve => setTimeout(resolve, 200));
+    } catch (error) {
+      console.log(`Ошибка при парсинге листинга ${i + 1}: ${error.message}`);
     }
     
-    return results;
-  });
+    results.push(data);
+  }
   
   console.log(`Обработано скинов: ${results.length}`);
   
