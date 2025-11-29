@@ -16,9 +16,8 @@ const fs = require('fs');
   });
   
   await page.waitForSelector('.market_listing_row.market_recent_listing_row');
-  await new Promise(r => setTimeout(r, 3000));
+  await new Promise(r => setTimeout(r, 2000));
   
-  // Получаем цену первого buy order
   const buyOrderPrice = await page.evaluate(() => {
     const buyOrderEl = document.querySelector('#market_commodity_buyrequests .market_commodity_orders_header_promote:last-child');
     return buyOrderEl ? buyOrderEl.textContent.trim() : null;
@@ -44,7 +43,6 @@ const fs = require('fs');
         float: null
       };
       
-      // ЦЕНА ЛИСТИНГА
       const priceElement = listing.querySelector('.market_listing_price.market_listing_price_with_fee');
       if (priceElement) {
         data.price = priceElement.textContent.trim();
@@ -56,7 +54,7 @@ const fs = require('fs');
       }
       
       nameElement.scrollIntoView({ behavior: 'auto', block: 'center' });
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 100)); // 500 → 100ms
       
       const rect = nameElement.getBoundingClientRect();
       const events = ['mouseenter', 'mouseover', 'mousemove'];
@@ -70,30 +68,41 @@ const fs = require('fs');
         }));
       }
       
-      await new Promise(resolve => setTimeout(resolve, 2500));
+      // ЖДЕМ ПОЯВЛЕНИЯ ДАННЫХ вместо фиксированной задержки
+      let attempts = 0;
+      let foundData = false;
       
-      const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
-      
-      for (let block of allBlocks) {
-        const text = block.innerText || block.textContent;
+      while (attempts < 25 && !foundData) { // макс 2.5 сек (25 × 100ms)
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
         
-        if (text.includes('Степень износа') || text.includes('Шаблон раскраски') || 
-            text.includes('Wear Rating') || text.includes('Pattern Template')) {
+        const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
+        
+        for (let block of allBlocks) {
+          const text = block.innerText || block.textContent;
           
-          const floatMatch = text.match(/(?:Степень износа|Wear Rating)[:\s]*([\d,\.]+)/i);
-          if (floatMatch) {
-            data.float = parseFloat(floatMatch[1].replace(',', '.'));
+          if (text.includes('Степень износа') || text.includes('Шаблон раскраски') || 
+              text.includes('Wear Rating') || text.includes('Pattern Template')) {
+            
+            const floatMatch = text.match(/(?:Степень износа|Wear Rating)[:\s]*([\d,\.]+)/i);
+            if (floatMatch) {
+              data.float = parseFloat(floatMatch[1].replace(',', '.'));
+            }
+            
+            const patternMatch = text.match(/(?:Шаблон раскраски|Pattern Template)[:\s]*(\d+)/i);
+            if (patternMatch) {
+              data.pattern = parseInt(patternMatch[1]);
+            }
+            
+            foundData = true;
+            break;
           }
-          
-          const patternMatch = text.match(/(?:Шаблон раскраски|Pattern Template)[:\s]*(\d+)/i);
-          if (patternMatch) {
-            data.pattern = parseInt(patternMatch[1]);
-          }
-          
-          break;
         }
+        
+        if (foundData) break;
       }
       
+      // Наклейки
       const allStickerInfos = document.querySelectorAll('#sticker_info');
       for (let stickerBlock of allStickerInfos) {
         const hasCenter = stickerBlock.querySelector('center');
@@ -125,7 +134,7 @@ const fs = require('fs');
       }));
       
       results.push(data);
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 100)); // 500 → 100ms
     }
     
     return results;
