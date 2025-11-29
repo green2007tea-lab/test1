@@ -17,13 +17,15 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
+    
+    - name: Install Xvfb
+      run: sudo apt-get update && sudo apt-get install -y xvfb
         
     - name: Install Puppeteer
-      run: |
-        npm install puppeteer
+      run: npm install puppeteer
         
-    - name: Run Parser
-      run: node parser.js
+    - name: Run Parser with Xvfb
+      run: xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" node parser.js
       
     - name: Upload Results
       uses: actions/upload-artifact@v4
