@@ -12,7 +12,7 @@ const fs = require('fs');
     ]
   });
   
-  const page = await browser.newPage();  // ВОТ ИСПРАВЛЕНИЕ: browser.newPage() вместо puppeteer.newPage()
+  const page = await browser.newPage();
   
   await page.goto('https://steamcommunity.com/market/listings/730/AK-47%20%7C%20Rat%20Rod%20%28Factory%20New%29', {
     waitUntil: 'networkidle2',
@@ -38,73 +38,113 @@ const fs = require('fs');
         float: null
       };
       
+      // Наклейки в листинге
       const stickerInfoInListing = listing.querySelector('#sticker_info');
       if (stickerInfoInListing) {
         const imgs = stickerInfoInListing.querySelectorAll('img');
         data.stickerCount = imgs.length;
       }
       
-      nameElement.dispatchEvent(new MouseEvent('mouseover', { 
-        bubbles: true, 
-        cancelable: true,
-        view: window 
-      }));
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
-      
-      for (let block of allBlocks) {
-        const text = block.innerText || block.textContent;
+      // ПРАВИЛЬНОЕ наведение мышки - используем hover() через элемент
+      if (nameElement) {
+        // Прокручиваем к элементу
+        nameElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await new Promise(resolve => setTimeout(resolve, 300));
         
-        if (text.includes('Степень износа') || text.includes('Шаблон раскраски')) {
-          const floatMatch = text.match(/Степень износа[:\s]*([\d,\.]+)/i);
-          if (floatMatch) {
-            data.float = parseFloat(floatMatch[1].replace(',', '.'));
-          }
-          
-          const patternMatch = text.match(/Шаблон раскраски[:\s]*(\d+)/i);
-          if (patternMatch) {
-            data.pattern = parseInt(patternMatch[1]);
-          }
-          
-          break;
-        }
-      }
-      
-      const allStickerInfos = document.querySelectorAll('#sticker_info');
-      for (let stickerBlock of allStickerInfos) {
-        const hasCenter = stickerBlock.querySelector('center');
-        const hasBorder = stickerBlock.style.border || (stickerBlock.getAttribute('style') || '').includes('border');
+        // Наводим курсор
+        const rect = nameElement.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
         
-        if (hasCenter || hasBorder) {
-          const centerEl = stickerBlock.querySelector('center');
-          if (centerEl) {
-            const fullText = centerEl.innerText || centerEl.textContent;
-            const lines = fullText.split('\n');
+        // Создаем реальное событие мышки
+        const mouseOverEvent = new MouseEvent('mouseover', {
+          view: window,
+          bubbles: true,
+          cancelable: true,
+          clientX: x,
+          clientY: y
+        });
+        
+        const mouseEnterEvent = new MouseEvent('mouseenter', {
+          view: window,
+          bubbles: true,
+          cancelable: true,
+          clientX: x,
+          clientY: y
+        });
+        
+        nameElement.dispatchEvent(mouseOverEvent);
+        nameElement.dispatchEvent(mouseEnterEvent);
+        
+        // Ждем popup
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // Float и Pattern
+        const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
+        
+        for (let block of allBlocks) {
+          const text = block.innerText || block.textContent;
+          
+          if (text.includes('Степень износа') || text.includes('Шаблон раскраски')) {
+            const floatMatch = text.match(/Степень износа[:\s]*([\d,\.]+)/i);
+            if (floatMatch) {
+              data.float = parseFloat(floatMatch[1].replace(',', '.'));
+            }
             
-            for (let line of lines) {
-              if (line.trim().startsWith('Наклейка:')) {
-                const stickerText = line.replace(/^Наклейка:\s*/i, '').trim();
-                const stickerNames = stickerText.split(',').map(s => s.trim()).filter(s => s);
-                data.stickers = stickerNames;
-                break;
+            const patternMatch = text.match(/Шаблон раскраски[:\s]*(\d+)/i);
+            if (patternMatch) {
+              data.pattern = parseInt(patternMatch[1]);
+            }
+            
+            break;
+          }
+        }
+        
+        // Наклейки из popup
+        const allStickerInfos = document.querySelectorAll('#sticker_info');
+        for (let stickerBlock of allStickerInfos) {
+          const hasCenter = stickerBlock.querySelector('center');
+          const hasBorder = stickerBlock.style.border || (stickerBlock.getAttribute('style') || '').includes('border');
+          
+          if (hasCenter || hasBorder) {
+            const centerEl = stickerBlock.querySelector('center');
+            if (centerEl) {
+              const fullText = centerEl.innerText || centerEl.textContent;
+              const lines = fullText.split('\n');
+              
+              for (let line of lines) {
+                if (line.trim().startsWith('Наклейка:')) {
+                  const stickerText = line.replace(/^Наклейка:\s*/i, '').trim();
+                  const stickerNames = stickerText.split(',').map(s => s.trim()).filter(s => s);
+                  data.stickers = stickerNames;
+                  break;
+                }
               }
             }
+            break;
           }
-          break;
         }
+        
+        // Убираем наведение
+        const mouseOutEvent = new MouseEvent('mouseout', {
+          view: window,
+          bubbles: true,
+          cancelable: true
+        });
+        
+        const mouseLeaveEvent = new MouseEvent('mouseleave', {
+          view: window,
+          bubbles: true,
+          cancelable: true
+        });
+        
+        nameElement.dispatchEvent(mouseOutEvent);
+        nameElement.dispatchEvent(mouseLeaveEvent);
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
       
-      nameElement.dispatchEvent(new MouseEvent('mouseout', { 
-        bubbles: true, 
-        cancelable: true,
-        view: window 
-      }));
-      
       results.push(data);
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
     }
     
     return results;
