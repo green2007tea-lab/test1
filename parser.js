@@ -12,7 +12,7 @@ const fs = require('fs');
     ]
   });
   
-  const page = await puppeteer.newPage();
+  const page = await browser.newPage();  // ВОТ ИСПРАВЛЕНИЕ: browser.newPage() вместо puppeteer.newPage()
   
   await page.goto('https://steamcommunity.com/market/listings/730/AK-47%20%7C%20Rat%20Rod%20%28Factory%20New%29', {
     waitUntil: 'networkidle2',
