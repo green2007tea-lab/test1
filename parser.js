@@ -3,7 +3,7 @@ const fs = require('fs');
 
 (async () => {
   const browser = await puppeteer.launch({
-    headless: false, // ВАЖНО: false чтобы видеть что происходит
+    headless: false,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
   
@@ -16,18 +16,16 @@ const fs = require('fs');
   });
   
   await page.waitForSelector('.market_listing_row.market_recent_listing_row');
-  await page.waitForTimeout(2000); // даём странице прогрузиться
+  await new Promise(r => setTimeout(r, 2000));
   
   const results = [];
   
-  // Получаем количество листингов
   const listingsCount = await page.$$eval('.market_listing_row.market_recent_listing_row', els => els.length);
   console.log(`Найдено скинов: ${listingsCount}`);
   
   for (let i = 0; i < listingsCount; i++) {
     console.log(`[${i + 1}/${listingsCount}] Обрабатываю...`);
     
-    // Получаем базовую инфу
     const baseData = await page.evaluate((index) => {
       const listings = document.querySelectorAll('.market_listing_row.market_recent_listing_row');
       const listing = listings[index];
@@ -47,25 +45,20 @@ const fs = require('fs');
       return data;
     }, i);
     
-    // РЕАЛЬНОЕ наведение мышки через Puppeteer
     const selector = `.market_listing_row.market_recent_listing_row:nth-child(${i + 1}) .market_listing_item_name`;
     
     try {
-      // Прокручиваем к элементу
       await page.evaluate((sel) => {
         const el = document.querySelector(sel);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }, selector);
       
-      await page.waitForTimeout(500);
+      await new Promise(r => setTimeout(r, 500));
       
-      // НАСТОЯЩЕЕ наведение курсора
       await page.hover(selector);
       
-      // Ждём popup
-      await page.waitForTimeout(2000);
+      await new Promise(r => setTimeout(r, 2000));
       
-      // Парсим данные
       const hoverData = await page.evaluate(() => {
         const result = {
           float: null,
@@ -73,7 +66,6 @@ const fs = require('fs');
           stickers: []
         };
         
-        // Float и Pattern
         const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
         for (let block of allBlocks) {
           const text = block.innerText || block.textContent;
@@ -92,7 +84,6 @@ const fs = require('fs');
           }
         }
         
-        // Наклейки
         const allStickerInfos = document.querySelectorAll('#sticker_info');
         for (let stickerBlock of allStickerInfos) {
           const hasCenter = stickerBlock.querySelector('center');
@@ -125,9 +116,8 @@ const fs = require('fs');
         ...hoverData
       });
       
-      // Убираем hover
       await page.mouse.move(0, 0);
-      await page.waitForTimeout(500);
+      await new Promise(r => setTimeout(r, 500));
       
     } catch (err) {
       console.log(`Ошибка для ${i + 1}:`, err.message);
