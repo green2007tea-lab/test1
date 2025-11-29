@@ -18,6 +18,18 @@ const fs = require('fs');
   await page.waitForSelector('.market_listing_row.market_recent_listing_row');
   await new Promise(r => setTimeout(r, 1500));
   
+  // Получаем количество страниц
+  const totalPages = await page.evaluate(() => {
+    const pageLinks = document.querySelectorAll('#searchResults_links .market_paging_pagelink');
+    if (pageLinks.length === 0) return 1;
+    
+    // Берем последний номер страницы
+    const lastPageLink = pageLinks[pageLinks.length - 1];
+    return parseInt(lastPageLink.textContent.trim());
+  });
+  
+  console.log(`📄 Всего страниц: ${totalPages}\n`);
+  
   const buyOrderPrice = await page.evaluate(() => {
     const buyOrderEl = document.querySelector('#market_commodity_buyrequests .market_commodity_orders_header_promote:last-child');
     return buyOrderEl ? buyOrderEl.textContent.trim() : null;
@@ -57,7 +69,6 @@ const fs = require('fs');
       
       const rect = nameElement.getBoundingClientRect();
       
-      // Одно событие вместо трех
       nameElement.dispatchEvent(new MouseEvent('mouseover', { 
         bubbles: true, 
         cancelable: true,
@@ -66,11 +77,10 @@ const fs = require('fs');
         clientY: rect.top + rect.height / 2
       }));
       
-      // Проверка каждые 50ms вместо 100ms
       let attempts = 0;
       let foundData = false;
       
-      while (attempts < 40 && !foundData) { // макс 2 сек (40 × 50ms)
+      while (attempts < 40 && !foundData) {
         await new Promise(resolve => setTimeout(resolve, 50));
         attempts++;
         
@@ -99,7 +109,6 @@ const fs = require('fs');
         if (foundData) break;
       }
       
-      // Наклейки
       const allStickerInfos = document.querySelectorAll('#sticker_info');
       for (let stickerBlock of allStickerInfos) {
         const hasCenter = stickerBlock.querySelector('center');
@@ -137,6 +146,7 @@ const fs = require('fs');
   });
   
   const output = {
+    totalPages: totalPages,
     buyOrderPrice: buyOrderPrice,
     items: results
   };
