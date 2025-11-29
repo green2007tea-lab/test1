@@ -39,14 +39,17 @@ async function parseSteamMarket() {
         float: null
       };
       
+      // НАВОДИМ МЫШКУ
       nameElement.dispatchEvent(new MouseEvent('mouseover', { 
         bubbles: true, 
         cancelable: true,
         view: window 
       }));
       
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // УВЕЛИЧЕНА ЗАДЕРЖКА для загрузки popup (было 100ms, стало 800ms)
+      await new Promise(resolve => setTimeout(resolve, 800));
       
+      // ПАРСИМ FLOAT И PATTERN
       const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
       
       for (let block of allBlocks) {
@@ -67,6 +70,7 @@ async function parseSteamMarket() {
         }
       }
       
+      // ПАРСИМ НАКЛЕЙКИ
       const allStickerInfos = document.querySelectorAll('#sticker_info');
       for (let stickerBlock of allStickerInfos) {
         const hasCenter = stickerBlock.querySelector('center');
@@ -91,6 +95,7 @@ async function parseSteamMarket() {
         }
       }
       
+      // УБИРАЕМ НАВЕДЕНИЕ
       nameElement.dispatchEvent(new MouseEvent('mouseout', { 
         bubbles: true, 
         cancelable: true,
@@ -99,7 +104,8 @@ async function parseSteamMarket() {
       
       results.push(data);
       
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // УВЕЛИЧЕНА ЗАДЕРЖКА между скинами (было 10ms, стало 200ms)
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
     
     return results;
