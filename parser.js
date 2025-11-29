@@ -3,6 +3,30 @@ const fs = require('fs');
 
 const STEAM_URL = 'https://steamcommunity.com/market/listings/730/AK-47%20%7C%20Rat%20Rod%20%28Factory%20New%29';
 
+// Функция для получения float/pattern из inspect ссылки
+function parseInspectLink(inspectUrl) {
+  // Формат: steam://rungame/730/76561202255233023/+csgo_econ_action_preview%20M{listingId}A{assetId}D{data}
+  const match = inspectUrl.match(/M(\d+)A(\d+)D(\d+)/);
+  
+  if (!match) return { float: null, pattern: null };
+  
+  const [, listingId, assetId, dataValue] = match;
+  
+  // D параметр содержит закодированные данные
+  // Это приближенное декодирование, может быть неточным
+  const data = BigInt(dataValue);
+  
+  // Извлекаем pattern (младшие 16 бит)
+  const pattern = Number(data & BigInt(0xFFFF));
+  
+  // Извлекаем float (следующие 32 бита, нужна формула)
+  // Упрощенная формула (может быть неточной)
+  const floatBits = Number((data >> BigInt(16)) & BigInt(0xFFFFFFFF));
+  const float = floatBits / 0xFFFFFFFF;
+  
+  return { pattern, float };
+}
+
 async function parseSteamMarket() {
   console.log('Запуск браузера...');
   
@@ -22,109 +46,55 @@ async function parseSteamMarket() {
   
   console.log('Парсинг скинов...');
   
-  // Получаем все листинги
-  const listings = await page.$$('.market_listing_row.market_recent_listing_row');
-  const results = [];
-  
-  for (let i = 0; i < listings.length; i++) {
-    console.log(`[${i + 1}/${listings.length}] Обрабатываю...`);
+  // Парсим все данные сразу
+  const results = await page.evaluate(() => {
+    const listings = document.querySelectorAll('.market_listing_row.market_recent_listing_row');
+    const results = [];
     
-    const listing = listings[i];
-    
-    // Получаем базовую информацию
-    const data = await listing.evaluate((el, idx) => {
-      const nameElement = el.querySelector('.market_listing_item_name');
-      return {
-        index: idx + 1,
-        listingId: el.id.replace('listing_', ''),
+    listings.forEach((listing, i) => {
+      const nameElement = listing.querySelector('.market_listing_item_name');
+      const inspectLink = listing.querySelector('.market_listing_row_action a');
+      
+      // Наклейки из sticker_info (если есть)
+      const stickerInfo = listing.querySelector('#sticker_info');
+      const stickers = [];
+      
+      if (stickerInfo) {
+        const stickerText = stickerInfo.innerText || stickerInfo.textContent;
+        // Ищем строку с названиями (обычно внизу блока)
+        const lines = stickerText.split('\n');
+        for (let line of lines) {
+          if (line.includes(',') || line.length > 20) {
+            const names = line.split(',').map(s => s.trim()).filter(s => s && s.length > 3);
+            if (names.length > 0) {
+              stickers.push(...names);
+            }
+          }
+        }
+      }
+      
+      results.push({
+        index: i + 1,
+        listingId: listing.id.replace('listing_', ''),
         name: nameElement ? nameElement.textContent.trim() : null,
-        stickers: [],
+        inspectUrl: inspectLink ? inspectLink.href : null,
+        stickers: stickers,
         pattern: null,
         float: null
-      };
-    }, i);
-    
-    // НАВОДИМ МЫШКУ через page.hover() - правильный способ для Puppeteer
-    const nameSelector = `#listing_${data.listingId} .market_listing_item_name`;
-    
-    try {
-      await page.hover(nameSelector);
-      
-      // Ждем появления popup с данными
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Парсим float, pattern и наклейки
-      const parsed = await page.evaluate(() => {
-        const result = {
-          float: null,
-          pattern: null,
-          stickers: []
-        };
-        
-        // 1. FLOAT И PATTERN
-        const allBlocks = document.querySelectorAll('._3JCkAyd9cnB90tRcDLPp4W');
-        
-        for (let block of allBlocks) {
-          const text = block.innerText || block.textContent;
-          
-          if (text.includes('Степень износа') || text.includes('Шаблон раскраски')) {
-            const floatMatch = text.match(/Степень износа[:\s]*([\d,\.]+)/i);
-            if (floatMatch) {
-              result.float = parseFloat(floatMatch[1].replace(',', '.'));
-            }
-            
-            const patternMatch = text.match(/Шаблон раскраски[:\s]*(\d+)/i);
-            if (patternMatch) {
-              result.pattern = parseInt(patternMatch[1]);
-            }
-            
-            break;
-          }
-        }
-        
-        // 2. НАКЛЕЙКИ
-        const allStickerInfos = document.querySelectorAll('#sticker_info');
-        for (let stickerBlock of allStickerInfos) {
-          const hasCenter = stickerBlock.querySelector('center');
-          const hasBorder = stickerBlock.style.border || (stickerBlock.getAttribute('style') || '').includes('border');
-          
-          if (hasCenter || hasBorder) {
-            const centerEl = stickerBlock.querySelector('center');
-            if (centerEl) {
-              const fullText = centerEl.innerText || centerEl.textContent;
-              const lines = fullText.split('\n');
-              
-              for (let line of lines) {
-                if (line.trim().startsWith('Наклейка:')) {
-                  const stickerText = line.replace(/^Наклейка:\s*/i, '').trim();
-                  const stickerNames = stickerText.split(',').map(s => s.trim()).filter(s => s);
-                  result.stickers = stickerNames;
-                  break;
-                }
-              }
-            }
-            break;
-          }
-        }
-        
-        return result;
       });
-      
-      // Объединяем данные
-      data.float = parsed.float;
-      data.pattern = parsed.pattern;
-      data.stickers = parsed.stickers;
-      
-      // Убираем наведение (двигаем мышку в сторону)
-      await page.mouse.move(0, 0);
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-    } catch (error) {
-      console.log(`Ошибка при парсинге листинга ${i + 1}: ${error.message}`);
-    }
+    });
     
-    results.push(data);
-  }
+    return results;
+  });
+  
+  // Обрабатываем inspect ссылки для получения float/pattern
+  results.forEach(item => {
+    if (item.inspectUrl) {
+      const parsed = parseInspectLink(item.inspectUrl);
+      item.pattern = parsed.pattern;
+      item.float = parsed.float > 0 && parsed.float < 1 ? parsed.float : null;
+    }
+  });
   
   console.log(`Обработано скинов: ${results.length}`);
   
